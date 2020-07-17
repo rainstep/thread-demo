@@ -1,17 +1,17 @@
-package com.example.threaddemo.waitnotify;
+package com.example.threaddemo.sync;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Queue;
 
-public class ConsumerThread extends Thread {
-    private static final Logger logger = LoggerFactory.getLogger(ConsumerThread.class);
+public class SyncConsumerThread extends Thread {
+    private static final Logger logger = LoggerFactory.getLogger(SyncConsumerThread.class);
 
     private String consumerName;
     private Queue<String> workQueue;
 
-    public ConsumerThread(String consumerName, Queue<String> workQueue) {
+    public SyncConsumerThread(String consumerName, Queue<String> workQueue) {
         super(consumerName + "-thread");
         this.consumerName = consumerName;
         this.workQueue = workQueue;

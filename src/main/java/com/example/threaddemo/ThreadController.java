@@ -1,23 +1,25 @@
 package com.example.threaddemo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PostConstruct;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 
 
 @RestController
+@RequestMapping("/thread")
 public class ThreadController {
+    private static final Logger logger = LoggerFactory.getLogger(ThreadController.class);
+
     final int THREAD_COUNT = 10;
     private final Map<Long, Queue<Long>> queueMap = new ConcurrentHashMap<>(THREAD_COUNT);
 
-    // 客户端
-    final int SEND_THREAD_COUNT = 10;
-    Map<Integer,  List<Integer>> arrMap = new HashMap<>(SEND_THREAD_COUNT);
 
     @PostConstruct
     public void init() {
@@ -25,27 +27,20 @@ public class ThreadController {
             ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
             queueMap.put(i, queue);
             new Thread(() -> {
-                String name = Thread.currentThread().getName();
                 while (true) {
-                    if (queue.isEmpty()) {
-                        synchronized (queue) {
+                    synchronized (queue) {
+                        if (queue.isEmpty()) {
                             try {
                                 queue.wait();
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
+                        } else {
+                            logger.info("{}", queue.poll());
                         }
-                    } else {
-                        System.out.println(name + "(2): " + queue.poll());
                     }
-
                 }
             }, "thread-" + i).start();
-        }
-
-
-        for (int i = 0; i < SEND_THREAD_COUNT; i++) {
-            arrMap.put(i, new ArrayList<>());
         }
     }
 
@@ -60,50 +55,64 @@ public class ThreadController {
     }
 
 
-    @GetMapping("/send")
-    public void send(int count) {
+    @GetMapping("/bfSend")
+    public void bfSend(@RequestParam(defaultValue = "100") long count,
+                       @RequestParam(defaultValue = "10") int threadCount) {
 
-        for (int i = 0; i < count; i++) {
-            int key = i % SEND_THREAD_COUNT;
-            arrMap.get(key).add(i);
+        Map<Integer, List<Long>> queueMap = new HashMap<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            queueMap.put(i, new ArrayList<>());
         }
-        CountDownLatch countDownLatch = new CountDownLatch(SEND_THREAD_COUNT);
-        for (int i = 0; i < SEND_THREAD_COUNT; i++) {
-            int finalI = i;
+
+        for (long i = 0; i < count; i++) {
+            int key = (int) (i % threadCount);
+            queueMap.get(key).add(i);
+        }
+
+        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
+        CountDownLatch countDownLatch2 = new CountDownLatch(threadCount);
+        for (int i = 0; i < threadCount; i++) {
+            List<Long> list = queueMap.get(i);
             new Thread(() -> {
-                List<Integer> arr = arrMap.get(finalI);
                 try {
                     countDownLatch.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                String name = Thread.currentThread().getName();
-                System.out.println(name + ":" + System.currentTimeMillis());
-//                for (int j = 0; j < arr.size(); j++) {
-//                    receive(arr.get(j));
-//                }
-            }, "sendThread-"+finalI).start();
+                for (int j = 0; j < list.size(); j++) {
+                    doWork();
+                }
+                countDownLatch2.countDown();
+            }).start();
             countDownLatch.countDown();
         }
-//        for (int i = 0; i < count; i++) {
-//            receive(i);
-//        }
-    }
-
-    @GetMapping("/test")
-    public void test(long i) {
-        Queue<Long> queue = queueMap.get(i);
-        synchronized (queue) {
-            queue.notify();
+        logger.info("开始时间：{}", System.currentTimeMillis());
+        try {
+            countDownLatch2.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+        logger.info("结束时间：{}", System.currentTimeMillis());
+
+
     }
 
-    @GetMapping("/bf")
-    public void bf(int count) {
 
-        CountDownLatch countDownLatch = new CountDownLatch(count);
+    @GetMapping("/send")
+    public void send(@RequestParam(defaultValue = "100") int count) {
+        logger.info("开始时间：{}", System.currentTimeMillis());
         for (int i = 0; i < count; i++) {
+            doWork();
+        }
+        logger.info("结束时间：{}", System.currentTimeMillis());
+    }
 
+    private void doWork() {
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }

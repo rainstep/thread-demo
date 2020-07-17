@@ -1,4 +1,4 @@
-package com.example.threaddemo.waitnotify;
+package com.example.threaddemo.sync;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class WaitNotifyTest {
-    private static final Logger logger = LoggerFactory.getLogger(WaitNotifyTest.class);
+public class SyncTest {
+    private static final Logger logger = LoggerFactory.getLogger(SyncTest.class);
 
     public static void main(String[] args) {
         int messageCount = 1000;
@@ -19,8 +19,8 @@ public class WaitNotifyTest {
         String consumer1 = "consumer1";
         String consumer2 = "consumer2";
 
-        new ConsumerThread(consumer1, workQueue).start();
-        new ConsumerThread(consumer2, workQueue).start();
+        new SyncConsumerThread(consumer1, workQueue).start();
+        new SyncConsumerThread(consumer2, workQueue).start();
 
         // 生产和通知消费
         produceAndNotifyConsumer(workQueue, messageCount);
@@ -61,10 +61,16 @@ public class WaitNotifyTest {
             String message = "message" + (i + 1);
             logger.info("生产消息：{}", message);
             workQueue.offer(message);
-            logger.info("通知消费者");
-            synchronized (workQueue) {
-                workQueue.notifyAll();
-            }
+            // 一有消息就通知消费者
+//            logger.info("通知消费者");
+//            synchronized (workQueue) {
+//                workQueue.notifyAll();
+//            }
+        }
+        // 所有消息生产完才通知消费者
+        logger.info("通知消费者");
+        synchronized (workQueue) {
+            workQueue.notifyAll();
         }
     }
 }
